@@ -1,69 +1,128 @@
-# import numpy as np
-# import scipy
-# import matplotlib
-#
-# from pprint import pprint
-# from scipy.io import loadmat
-# from sklearn.datasets import fetch_mldata
-#
-#
-# import time
-# import matplotlib.pyplot as plt
-# import numpy as np
-#
-# from sklearn.datasets import fetch_mldata
-# from sklearn.model_selection import train_test_split
-# from sklearn.preprocessing import StandardScaler
-# from sklearn.utils import check_random_state
-#
-# print(__doc__)
-#
-# # Author: Arthur Mensch <arthur.mensch@m4x.org>
-# # License: BSD 3 clause
-#
-# # Turn down for faster convergence
-# t0 = time.time()
-# train_samples = 6000
-#
-# mnist = fetch_mldata('MNIST original')
-# X = mnist.data.astype('float64')
-# y = mnist.target
-# random_state = check_random_state(0)
-# permutation = random_state.permutation(X.shape[0])
-# X = X[permutation]
-# y = y[permutation]
-# X = X.reshape((X.shape[0], -1))
-#
-# X_train, X_test, y_train, y_test = train_test_split(
-#     X, y, train_size=train_samples, test_size=1000)
-#
-# scaler = StandardScaler()
-# X_train = scaler.fit_transform(X_train)
-# X_test = scaler.transform(X_test)
-#
-# print(X_test)
-# print(X_train)
-#
-# mnist = fetch_mldata('MNIST original', data_home="/Users/naitikshah/PycharmProjects/KNN")
-# print(mnist)
-# print(mnist.data.shape)
-# print(mnist.target.shape)
-#
-# print(np.unique(mnist.target))
-
-import pandas as pd
-
-from sklearn.datasets import fetch_mldata
-mnist = fetch_mldata("MNIST original")
-X, y = mnist.data / 255., mnist.target
-X_train, X_test = X[:6000], X[6000:7000]
-y_train, y_test = y[:6000], y[6000:7000]
+import csv
+import numpy as np
+import operator
+import matplotlib.pyplot as plt
 
 
-print(len(X_train))
-print(len(X_test))
+def loadTrainDataset(filename):
+    trainingimages = []
+    traininglabels = []
+    with open(filename, newline='') as csvfile:
+        csvReader = csv.reader(csvfile,delimiter=',')
+        for row in csvReader:
+            traininglabels.append(row[0])
+            temp = row[1:]
+            for i in range(len(temp)):
+                temp[i] = int(temp[i])
+            trainingimages.append(temp)
+    return trainingimages[0:6000],traininglabels[0:6000]
 
-print(pd.DataFrame(X_train))
+
+def loadTestDataset(filename):
+    testingimages = []
+    testinglabels = []
+    with open(filename, newline='') as csvfile:
+        csvReader = csv.reader(csvfile, delimiter=',')
+        for row in csvReader:
+            testinglabels.append(row[0])
+            temp = row[1:]
+            for i in range(len(temp)):
+                temp[i] = int(temp[i])
+            testingimages.append(temp)
+    return testingimages[0:1000], testinglabels[0:1000]
+
+
+def L2distance(a, b):
+    temp = (a - b) ** 2
+    return np.sum(temp)
+
+
+def sortNeighbours(result):
+    result.sort(key=operator.itemgetter(0))
+    return result
+
+
+def findneighbours(test_image, train_Data):
+    result = []
+    for j in range(6000):
+        train_image = np.array(train_Data[0][j])
+        label_train = (train_Data[1][j])
+        distance = L2distance(test_image, train_image)
+        result.append((distance, label_train))
+    return sortNeighbours(result)
+
+
+def findKnearest(countneighbours):
+    return sorted(countneighbours.items(), key=operator.itemgetter(1), reverse=True)
+
+
+def find_majority(k, neighbours):
+    nearestneighbours = []
+    countneighbours = {}
+
+    for x in range(k):
+        nearestneighbours.append(neighbours[x][1])
+
+    for m in range(len(nearestneighbours)):
+        value = nearestneighbours[m]
+        if value in countneighbours:
+            countneighbours[value] += 1
+        else:
+            countneighbours[value] = 1
+
+        total = findKnearest(countneighbours)
+
+    return total[0][0]
+
+
+def predictCorrectlyClassified(train_Data, test_data):
+    k = [1, 9, 19, 29, 39, 49, 59, 69, 79, 89, 99]
+    correct_classification = [0 for i in range(11)]
+
+    neighbours = []
+    for i in range(1000):
+        print(i)
+        test_image = np.array(test_data[0][i])
+        label_test = test_data[1][i]
+        neighbours = findneighbours(test_image, train_Data)
+
+        for index in range(11):
+            label_predicted = find_majority(k[index], neighbours)
+            if label_predicted == label_test:
+                correct_classification[index] += 1
+    print(correct_classification)
+    return correct_classification
 
 
 
+def graphPlot(graph1,k):
+    plt.plot(graph1, label="K-Nearest Neighbours")
+    xdatapoints=[i for i in range(0, len(k))]
+    plt.ylabel('Error %')
+    plt.xlabel('Value of K')
+    plt.xticks(xdatapoints,k)
+    plt.legend()
+    plt.show()
+
+
+
+def main():
+    error = [0 for i in range(11)]
+    k = [1, 9, 19, 29, 39, 49, 59, 69, 79, 89, 99]
+
+
+    training_DataSet = loadTrainDataset('mnist_train.csv')
+    testing_DataSet = loadTestDataset('mnist_test.csv')
+
+    correct_classification = predictCorrectlyClassified(training_DataSet, testing_DataSet)
+
+    print(correct_classification)
+
+    for j in range(len(correct_classification)):
+        error[j] = (1000-correct_classification[j])/len(testing_DataSet[1])
+
+    print(error)
+    graphPlot(error, k)
+
+
+main()
